@@ -1,0 +1,619 @@
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- Переменные для телепортации
+local firstPartName = "SP4"
+local secondPartName = "3d23d2c2-409a-45da-b93f-35e57d7479ad"
+local isLooping = false
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "IOSPanel"
+gui.ResetOnSpawn = false
+gui.Parent = playerGui
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.fromOffset(0, 0)
+frame.Position = UDim2.new(.5, -190, .5, -210)
+frame.BackgroundColor3 = Color3.fromRGB(245, 245, 248)
+frame.BackgroundTransparency = 1
+frame.Parent = gui
+
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 24)
+
+local stroke = Instance.new("UIStroke")
+stroke.Parent = frame
+stroke.Color = Color3.fromRGB(220, 220, 225)
+stroke.Thickness = 1.2
+stroke.Transparency = 1
+
+-- Переменная для отслеживания скрытого состояния
+local isHidden = false
+
+-- Маленькая кнопка для возврата панели (появляется при скрытии)
+local restoreButton = Instance.new("TextButton")
+restoreButton.Size = UDim2.fromOffset(44, 44)
+restoreButton.Position = UDim2.new(0, 10, 0, 10)
+restoreButton.Text = "⤢"
+restoreButton.Font = Enum.Font.GothamBold
+restoreButton.TextSize = 22
+restoreButton.TextColor3 = Color3.new(1, 1, 1)
+restoreButton.BackgroundColor3 = Color3.fromRGB(0, 122, 255)
+restoreButton.BackgroundTransparency = 0.2
+restoreButton.Visible = false
+restoreButton.Parent = gui
+Instance.new("UICorner", restoreButton).CornerRadius = UDim.new(1, 0)
+
+-- Анимация появления главного окна
+local function openMainPanel()
+    isHidden = false
+    restoreButton.Visible = false
+    frame.Visible = true
+    TweenService:Create(frame, TweenInfo.new(0.35, Enum.EasingStyle.Quint), {
+        Size = UDim2.fromOffset(380, 370),
+        BackgroundTransparency = 0.08
+    }):Play()
+    TweenService:Create(stroke, TweenInfo.new(0.35, Enum.EasingStyle.Quint), {
+        Transparency = 0.2
+    }):Play()
+end
+
+-- Анимация скрытия главного окна (без удаления)
+local function hideMainPanel()
+    isHidden = true
+    local tween1 = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {
+        Size = UDim2.fromOffset(0, 0),
+        BackgroundTransparency = 1
+    })
+    local tween2 = TweenService:Create(stroke, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {
+        Transparency = 1
+    })
+    tween1:Play()
+    tween2:Play()
+    tween1.Completed:Connect(function()
+        frame.Visible = false
+        restoreButton.Visible = true
+    end)
+end
+
+-- Запускаем появление при старте
+openMainPanel()
+
+local title = Instance.new("TextLabel")
+title.Parent = frame
+title.BackgroundTransparency = 1
+title.Position = UDim2.fromOffset(20, 15)
+title.Size = UDim2.new(1, -60, 0, 30)
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Font = Enum.Font.GothamBold
+title.Text = "Admin Panel"
+title.TextSize = 22
+title.TextColor3 = Color3.fromRGB(30, 30, 35)
+
+-- Кнопка инструкции ?
+local helpButton = Instance.new("TextButton")
+helpButton.Parent = frame
+helpButton.Size = UDim2.fromOffset(32, 32)
+helpButton.Position = UDim2.new(1, -122, 0, 10)  -- сдвинута левее для трёх кнопок
+helpButton.Text = "?"
+helpButton.Font = Enum.Font.GothamBold
+helpButton.TextSize = 18
+helpButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+helpButton.BackgroundColor3 = Color3.fromRGB(0, 122, 255)
+Instance.new("UICorner", helpButton).CornerRadius = UDim.new(1, 0)
+
+-- Кнопка скрытия –
+local hideButton = Instance.new("TextButton")
+hideButton.Parent = frame
+hideButton.Size = UDim2.fromOffset(32, 32)
+hideButton.Position = UDim2.new(1, -82, 0, 10)   -- между ? и ❌
+hideButton.Text = "–"
+hideButton.Font = Enum.Font.GothamBold
+hideButton.TextSize = 22
+hideButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+hideButton.BackgroundColor3 = Color3.fromRGB(255, 149, 0)  -- оранжевый
+Instance.new("UICorner", hideButton).CornerRadius = UDim.new(1, 0)
+
+-- Кнопка закрытия ❌
+local close = Instance.new("TextButton")
+close.Parent = frame
+close.Size = UDim2.fromOffset(32, 32)
+close.Position = UDim2.new(1, -42, 0, 10)
+close.Text = "❌"
+close.Font = Enum.Font.GothamBold
+close.TextSize = 18
+close.TextColor3 = Color3.new(1, 1, 1)
+close.BackgroundColor3 = Color3.fromRGB(255, 59, 48)
+Instance.new("UICorner", close).CornerRadius = UDim.new(1, 0)
+
+-- Поле первого парта (заблокировано)
+local firstInput = Instance.new("TextBox")
+firstInput.Parent = frame
+firstInput.Size = UDim2.new(1, -40, 0, 36)
+firstInput.Position = UDim2.fromOffset(20, 60)
+firstInput.Text = firstPartName
+firstInput.Font = Enum.Font.Gotham
+firstInput.TextSize = 14
+firstInput.TextColor3 = Color3.fromRGB(100, 100, 110)
+firstInput.BackgroundColor3 = Color3.fromRGB(210, 210, 215)
+firstInput.BorderSizePixel = 0
+firstInput.TextEditable = false
+firstInput.ClearTextOnFocus = false
+Instance.new("UICorner", firstInput).CornerRadius = UDim.new(0, 12)
+
+-- Поле второго парта (текст не удаляется)
+local secondInput = Instance.new("TextBox")
+secondInput.Parent = frame
+secondInput.Size = UDim2.new(1, -40, 0, 36)
+secondInput.Position = UDim2.fromOffset(20, 106)
+secondInput.PlaceholderText = "Имя второго парта"
+secondInput.Text = secondPartName
+secondInput.Font = Enum.Font.Gotham
+secondInput.TextSize = 14
+secondInput.TextColor3 = Color3.fromRGB(30, 30, 35)
+secondInput.BackgroundColor3 = Color3.fromRGB(230, 230, 235)
+secondInput.BorderSizePixel = 0
+secondInput.ClearTextOnFocus = false
+Instance.new("UICorner", secondInput).CornerRadius = UDim.new(0, 12)
+
+-- Статусная строка
+local status = Instance.new("TextLabel")
+status.Parent = frame
+status.Size = UDim2.new(1, -40, 0, 24)
+status.Position = UDim2.fromOffset(20, 280)
+status.BackgroundTransparency = 1
+status.Text = "Готов"
+status.Font = Enum.Font.Gotham
+status.TextSize = 14
+status.TextColor3 = Color3.fromRGB(30, 30, 35)
+status.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Подпись автора
+local authorLabel = Instance.new("TextLabel")
+authorLabel.Parent = frame
+authorLabel.Size = UDim2.new(1, -40, 0, 20)
+authorLabel.Position = UDim2.fromOffset(20, 310)
+authorLabel.BackgroundTransparency = 1
+authorLabel.Text = "Скрипт разработан Феликсом ✨"
+authorLabel.Font = Enum.Font.Gotham
+authorLabel.TextSize = 12
+authorLabel.TextColor3 = Color3.fromRGB(120, 120, 130)
+authorLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Стильная кнопка «Телепорт»
+local teleportButton = Instance.new("TextButton")
+teleportButton.Parent = frame
+teleportButton.Size = UDim2.new(1, -40, 0, 46)
+teleportButton.Position = UDim2.fromOffset(20, 160)
+teleportButton.Text = "⚡ Телепорт"
+teleportButton.Font = Enum.Font.GothamBold
+teleportButton.TextSize = 18
+teleportButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+teleportButton.BackgroundColor3 = Color3.fromRGB(0, 122, 255)
+Instance.new("UICorner", teleportButton).CornerRadius = UDim.new(0, 16)
+
+teleportButton.MouseEnter:Connect(function()
+    TweenService:Create(teleportButton, TweenInfo.new(0.2), {
+        BackgroundColor3 = Color3.fromRGB(10, 132, 255)
+    }):Play()
+end)
+teleportButton.MouseLeave:Connect(function()
+    TweenService:Create(teleportButton, TweenInfo.new(0.2), {
+        BackgroundColor3 = Color3.fromRGB(0, 122, 255)
+    }):Play()
+end)
+
+-- Переключатель «Цикл»
+local cycleToggle = Instance.new("TextButton")
+cycleToggle.Parent = frame
+cycleToggle.Size = UDim2.new(1, -40, 0, 46)
+cycleToggle.Position = UDim2.fromOffset(20, 216)
+cycleToggle.Text = "Цикл: ВЫКЛ"
+cycleToggle.Font = Enum.Font.GothamBold
+cycleToggle.TextSize = 18
+cycleToggle.TextColor3 = Color3.fromRGB(50, 50, 55)
+cycleToggle.BackgroundColor3 = Color3.fromRGB(180, 180, 185)
+Instance.new("UICorner", cycleToggle).CornerRadius = UDim.new(0, 16)
+
+cycleToggle.MouseEnter:Connect(function()
+    if not isLooping then
+        TweenService:Create(cycleToggle, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(200, 200, 205)
+        }):Play()
+    else
+        TweenService:Create(cycleToggle, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(80, 180, 80)
+        }):Play()
+    end
+end)
+cycleToggle.MouseLeave:Connect(function()
+    if not isLooping then
+        TweenService:Create(cycleToggle, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(180, 180, 185)
+        }):Play()
+    else
+        TweenService:Create(cycleToggle, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(60, 160, 60)
+        }):Play()
+    end
+end)
+
+-- ====================
+-- ОКНО ИНСТРУКЦИИ
+-- ====================
+local instructionFrame = Instance.new("Frame")
+instructionFrame.Parent = gui
+instructionFrame.Size = UDim2.fromOffset(0, 0)
+instructionFrame.Position = UDim2.new(.5, -240, .5, -275)
+instructionFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+instructionFrame.BackgroundTransparency = 1
+instructionFrame.Visible = false
+Instance.new("UICorner", instructionFrame).CornerRadius = UDim.new(0, 16)
+
+local instructionStroke = Instance.new("UIStroke")
+instructionStroke.Parent = instructionFrame
+instructionStroke.Color = Color3.fromRGB(60, 60, 65)
+instructionStroke.Thickness = 1.2
+instructionStroke.Transparency = 1
+
+local instructionTitle = Instance.new("TextLabel")
+instructionTitle.Parent = instructionFrame
+instructionTitle.BackgroundTransparency = 1
+instructionTitle.Position = UDim2.fromOffset(20, 15)
+instructionTitle.Size = UDim2.new(1, -40, 0, 30)
+instructionTitle.TextXAlignment = Enum.TextXAlignment.Left
+instructionTitle.Font = Enum.Font.GothamBold
+instructionTitle.Text = "Инструкция"
+instructionTitle.TextSize = 20
+instructionTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+local closeInstruction = Instance.new("TextButton")
+closeInstruction.Parent = instructionFrame
+closeInstruction.Size = UDim2.fromOffset(30, 30)
+closeInstruction.Position = UDim2.new(1, -40, 0, 15)
+closeInstruction.Text = "❌"
+closeInstruction.Font = Enum.Font.GothamBold
+closeInstruction.TextSize = 18
+closeInstruction.TextColor3 = Color3.fromRGB(200, 200, 200)
+closeInstruction.BackgroundTransparency = 1
+
+local scrollContainer = Instance.new("ScrollingFrame")
+scrollContainer.Parent = instructionFrame
+scrollContainer.Position = UDim2.fromOffset(15, 55)
+scrollContainer.Size = UDim2.new(1, -30, 1, -70)
+scrollContainer.BackgroundTransparency = 1
+scrollContainer.BorderSizePixel = 0
+scrollContainer.ScrollBarThickness = 6
+scrollContainer.ScrollBarImageColor3 = Color3.fromRGB(150, 150, 155)
+
+local listLayout = Instance.new("UIListLayout")
+listLayout.Parent = scrollContainer
+listLayout.Padding = UDim.new(0, 10)
+listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- Полный текст инструкции
+local instructionText = Instance.new("TextLabel")
+instructionText.Parent = scrollContainer
+instructionText.BackgroundTransparency = 1
+instructionText.Size = UDim2.new(1, -20, 0, 230)
+instructionText.TextXAlignment = Enum.TextXAlignment.Left
+instructionText.TextYAlignment = Enum.TextYAlignment.Top
+instructionText.Font = Enum.Font.Gotham
+instructionText.TextSize = 14
+instructionText.TextColor3 = Color3.fromRGB(220, 220, 225)
+instructionText.TextWrapped = true
+instructionText.Text = [[
+1. Запустите скрипт:
+loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
+
+2. Введите Dex, у вас выберется Explorer
+
+3. Нажмите Enter, ждите загрузку
+
+4. Листайте вниз и ищите парты с названиями по примеру "3d23d2c2-409a-45da-b93f-35e57d7479ad"
+
+5. Нажмите на парт и ищите, где будет выделяться синим в зоне паркура с 10 победами
+
+6. Скопируйте название и вставьте в скрипт
+
+Всё замечательно работает!
+]]
+
+-- Поле с командой loadstring
+local loadstringBox = Instance.new("TextBox")
+loadstringBox.Parent = scrollContainer
+loadstringBox.Size = UDim2.new(1, -20, 0, 50)
+loadstringBox.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+loadstringBox.TextColor3 = Color3.fromRGB(255, 255, 100)
+loadstringBox.Font = Enum.Font.Code
+loadstringBox.TextSize = 13
+loadstringBox.Text = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()'
+loadstringBox.MultiLine = false
+loadstringBox.TextEditable = false
+loadstringBox.ClearTextOnFocus = false
+Instance.new("UICorner", loadstringBox).CornerRadius = UDim.new(0, 8)
+
+local copyLoadButton = Instance.new("TextButton")
+copyLoadButton.Parent = scrollContainer
+copyLoadButton.Size = UDim2.new(0, 200, 0, 35)
+copyLoadButton.Text = "📋 Копировать команду"
+copyLoadButton.Font = Enum.Font.GothamBold
+copyLoadButton.TextSize = 15
+copyLoadButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+copyLoadButton.BackgroundColor3 = Color3.fromRGB(0, 122, 255)
+Instance.new("UICorner", copyLoadButton).CornerRadius = UDim.new(0, 12)
+
+copyLoadButton.MouseButton1Click:Connect(function()
+    local success, err = pcall(function()
+        setclipboard(loadstringBox.Text)
+    end)
+    if success then
+        copyLoadButton.Text = "✅ Скопировано!"
+        task.wait(1.5)
+        copyLoadButton.Text = "📋 Копировать команду"
+    else
+        copyLoadButton.Text = "❌ Ошибка"
+        task.wait(1.5)
+        copyLoadButton.Text = "📋 Копировать команду"
+    end
+end)
+
+-- Видеоинструкция
+local videoLinkBox = Instance.new("TextBox")
+videoLinkBox.Parent = scrollContainer
+videoLinkBox.Size = UDim2.new(1, -20, 0, 36)
+videoLinkBox.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+videoLinkBox.TextColor3 = Color3.fromRGB(150, 200, 255)
+videoLinkBox.Font = Enum.Font.Code
+videoLinkBox.TextSize = 12
+videoLinkBox.Text = "https://youtu.be/t9D4sbWmQW4"
+videoLinkBox.MultiLine = false
+videoLinkBox.TextEditable = false
+videoLinkBox.ClearTextOnFocus = false
+Instance.new("UICorner", videoLinkBox).CornerRadius = UDim.new(0, 8)
+
+local copyVideoButton = Instance.new("TextButton")
+copyVideoButton.Parent = scrollContainer
+copyVideoButton.Size = UDim2.new(0, 200, 0, 35)
+copyVideoButton.Text = "📹 Копировать ссылку на видео"
+copyVideoButton.Font = Enum.Font.GothamBold
+copyVideoButton.TextSize = 14
+copyVideoButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+copyVideoButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+Instance.new("UICorner", copyVideoButton).CornerRadius = UDim.new(0, 12)
+
+copyVideoButton.MouseButton1Click:Connect(function()
+    local success, err = pcall(function()
+        setclipboard(videoLinkBox.Text)
+    end)
+    if success then
+        copyVideoButton.Text = "✅ Скопировано!"
+        task.wait(1.5)
+        copyVideoButton.Text = "📹 Копировать ссылку на видео"
+    else
+        copyVideoButton.Text = "❌ Ошибка"
+        task.wait(1.5)
+        copyVideoButton.Text = "📹 Копировать ссылку на видео"
+    end
+end)
+
+-- Подпись автора в инструкции
+local authorInstruction = Instance.new("TextLabel")
+authorInstruction.Parent = scrollContainer
+authorInstruction.BackgroundTransparency = 1
+authorInstruction.Size = UDim2.new(1, -20, 0, 20)
+authorInstruction.Text = "Разработано Феликсом ✨"
+authorInstruction.Font = Enum.Font.Gotham
+authorInstruction.TextSize = 12
+authorInstruction.TextColor3 = Color3.fromRGB(200, 200, 210)
+authorInstruction.TextXAlignment = Enum.TextXAlignment.Center
+
+scrollContainer.Changed:Connect(function()
+    local totalHeight = 0
+    for _, child in ipairs(scrollContainer:GetChildren()) do
+        if child:IsA("GuiObject") then
+            totalHeight = totalHeight + child.Size.Y.Offset + listLayout.Padding.Offset
+        end
+    end
+    scrollContainer.CanvasSize = UDim2.new(0, 0, 0, totalHeight + 20)
+end)
+
+-- Функции открытия/закрытия инструкции с анимацией
+local function openInstruction()
+    instructionFrame.Visible = true
+    instructionFrame.Size = UDim2.fromOffset(0, 0)
+    instructionFrame.BackgroundTransparency = 1
+    instructionStroke.Transparency = 1
+    TweenService:Create(instructionFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {
+        Size = UDim2.fromOffset(480, 550),
+        BackgroundTransparency = 0
+    }):Play()
+    TweenService:Create(instructionStroke, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {
+        Transparency = 0
+    }):Play()
+end
+
+local function closeInstructionAnim()
+    local tween1 = TweenService:Create(instructionFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quint), {
+        Size = UDim2.fromOffset(0, 0),
+        BackgroundTransparency = 1
+    })
+    local tween2 = TweenService:Create(instructionStroke, TweenInfo.new(0.25, Enum.EasingStyle.Quint), {
+        Transparency = 1
+    })
+    tween1:Play()
+    tween2:Play()
+    tween1.Completed:Connect(function()
+        instructionFrame.Visible = false
+    end)
+end
+
+helpButton.MouseButton1Click:Connect(openInstruction)
+closeInstruction.MouseButton1Click:Connect(closeInstructionAnim)
+
+instructionFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        local mousePos = UserInputService:GetMouseLocation()
+        local framePos = instructionFrame.AbsolutePosition
+        local frameSize = instructionFrame.AbsoluteSize
+        if mousePos.X < framePos.X or mousePos.X > framePos.X + frameSize.X or
+           mousePos.Y < framePos.Y or mousePos.Y > framePos.Y + frameSize.Y then
+            closeInstructionAnim()
+        end
+    end
+end)
+
+-- ====================
+-- ЛОГИКА ТЕЛЕПОРТАЦИИ
+-- ====================
+local function findPart(partName)
+    local part = nil
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Name == partName then
+            part = obj
+            break
+        end
+    end
+    if not part then
+        for _, service in pairs(game:GetChildren()) do
+            if service:IsA("Service") and service ~= workspace then
+                for _, obj in pairs(service:GetDescendants()) do
+                    if obj:IsA("BasePart") and obj.Name == partName then
+                        part = obj
+                        break
+                    end
+                end
+            end
+            if part then break end
+        end
+    end
+    return part
+end
+
+local function teleportToPart(partName)
+    local part = findPart(partName)
+    if not part then
+        status.Text = "Парт не найден: " .. partName
+        return false
+    end
+    local character = player.Character
+    if not character then
+        status.Text = "Персонаж не найден"
+        return false
+    end
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then
+        status.Text = "HumanoidRootPart не найден"
+        return false
+    end
+    humanoidRootPart.CFrame = part.CFrame + Vector3.new(0, 2, 0)
+    status.Text = "Телепорт к: " .. partName
+    return true
+end
+
+local function functionA()
+    status.Text = "Телепорт к " .. firstPartName .. "..."
+    local success = teleportToPart(firstPartName)
+    if success then
+        task.wait(0.7)
+        status.Text = "Телепорт к " .. secondPartName .. "..."
+        teleportToPart(secondPartName)
+    end
+end
+
+local function toggleCycle()
+    if isLooping then
+        isLooping = false
+        status.Text = "Цикл остановлен"
+        cycleToggle.Text = "Цикл: ВЫКЛ"
+        TweenService:Create(cycleToggle, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(180, 180, 185),
+            TextColor3 = Color3.fromRGB(50, 50, 55)
+        }):Play()
+    else
+        isLooping = true
+        status.Text = "Запущен цикл (1 сек)"
+        cycleToggle.Text = "Цикл: ВКЛ"
+        TweenService:Create(cycleToggle, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(60, 160, 60),
+            TextColor3 = Color3.fromRGB(255, 255, 255)
+        }):Play()
+        spawn(function()
+            while isLooping do
+                functionA()
+                if isLooping then
+                    task.wait(1)
+                end
+            end
+        end)
+    end
+end
+
+teleportButton.MouseButton1Click:Connect(functionA)
+cycleToggle.MouseButton1Click:Connect(toggleCycle)
+
+secondInput.FocusLost:Connect(function(enterPressed)
+    if enterPressed and #secondInput.Text > 0 then
+        secondPartName = secondInput.Text
+        status.Text = "Парт 2 обновлён: " .. secondPartName
+    end
+end)
+
+-- Обработчики новых кнопок
+hideButton.MouseButton1Click:Connect(hideMainPanel)
+restoreButton.MouseButton1Click:Connect(openMainPanel)
+
+-- Закрытие с анимацией и удалением (оставлено без изменений)
+local function closeWithAnimation()
+    if isLooping then
+        isLooping = false
+    end
+    local tween1 = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {
+        Size = UDim2.fromOffset(0, 0),
+        BackgroundTransparency = 1
+    })
+    local tween2 = TweenService:Create(stroke, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {
+        Transparency = 1
+    })
+    tween1:Play()
+    tween2:Play()
+    tween1.Completed:Connect(function()
+        gui:Destroy()
+    end)
+end
+
+close.MouseButton1Click:Connect(closeWithAnimation)
+
+-- Перетаскивание (работает, когда панель видна)
+local dragging = false
+local dragStart
+local startPos
+
+frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
